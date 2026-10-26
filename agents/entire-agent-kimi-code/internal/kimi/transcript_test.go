@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -275,5 +276,59 @@ func TestTokenAggregationEdgeCases(t *testing.T) {
 	// Unknown flag must be an error, not silent success.
 	if e = New().HandleAggregate("calculate-tokens", []string{"--bogus"}, bytes.NewReader(b), &out); e == nil {
 		t.Fatal("accepted unknown flag")
+	}
+}
+
+// calculate-total-tokens must not recount retained child transcripts from
+// byte zero on later passes: the parent is restricted to the suffix after
+// Entire's cursor, so every child counts only usage at or after its own
+// recorded byte cursor.
+func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
+	setup(t) // pin byte offsets
+	root := t.TempDir()
+	sub := filepath.Join(root, "session_x", "subagents")
+	if e := os.MkdirAll(sub, 0700); e != nil {
+		t.Fatal(e)
+	}
+	first := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":100,\"output\":10,\"inputCacheRead\":5}}\n")
+	child := filepath.Join(sub, "agent-0.jsonl")
+	put(t, child, first)
+	main := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":1,\"output\":1}}\n")
+	var out bytes.Buffer
+	if e := New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub}, bytes.NewReader(main), &out); e != nil {
+		t.Fatal(e)
+	}
+	var u tokens
+	if e := json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 100 || u.Sub.Output != 10 || u.Sub.Calls != 1 || u.Input != 101 {
+		t.Fatalf("turn-1 usage: %+v", u)
+	}
+	if offsets := readChildOffsets(sub); offsets["agent-0.jsonl"] != len(first) {
+		t.Fatalf("child cursor not recorded: %+v", offsets)
+	}
+	// The cursor state file must stay invisible to child transcript listing.
+	kids, e := childTranscripts(sub)
+	if e != nil || len(kids) != 1 {
+		t.Fatalf("state file polluted child listing: %d %v", len(kids), e)
+	}
+	// Resume-style pass: the parent cursor has advanced past turn 1 and the
+	// child gained turn-2 usage. Turn-1 child usage must not count twice.
+	second := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":200,\"output\":20}}\n")
+	put(t, child, append(append([]byte{}, first...), second...))
+	main2 := append(append([]byte{}, main...), []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":2,\"output\":2}}\n")...)
+	out.Reset()
+	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub, "--offset", strconv.Itoa(len(main))}, bytes.NewReader(main2), &out); e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 200 || u.Sub.Output != 20 || u.Sub.Calls != 1 {
+		t.Fatalf("turn-1 child usage recounted: %+v", u)
+	}
+	if u.Input != 202 || u.Output != 22 {
+		t.Fatalf("parent suffix or totals wrong: %+v", u)
 	}
 }

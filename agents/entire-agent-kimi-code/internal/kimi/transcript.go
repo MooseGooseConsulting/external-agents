@@ -241,10 +241,13 @@ type tokens struct {
 	Sub    *tokens `json:"subagent_tokens,omitempty"`
 }
 
-func tokenUsage(b []byte, offset int) (tokens, error) {
-	rs, _, e := records(b, offset)
+// tokenUsageFrom counts usage records at or after offset and returns the byte
+// cursor where the next pass must resume: only complete newline-terminated
+// records are counted, mirroring the parent transcript bridge.
+func tokenUsageFrom(b []byte, offset int) (tokens, int, error) {
+	rs, pos, e := records(b, offset)
 	if e != nil {
-		return tokens{}, e
+		return tokens{}, pos, e
 	}
 	var t tokens
 	for _, r := range rs {
@@ -257,7 +260,11 @@ func tokenUsage(b []byte, offset int) (tokens, error) {
 		t.Create += r.Usage.Create
 		t.Calls++
 	}
-	return t, nil
+	return t, pos, nil
+}
+func tokenUsage(b []byte, offset int) (tokens, error) {
+	t, _, e := tokenUsageFrom(b, offset)
+	return t, e
 }
 func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out io.Writer) error {
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -281,18 +288,36 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		return e
 	}
 	if command != "calculate-tokens" && *dir != "" {
-		children, e := childTranscripts(*dir)
+		paths, e := childTranscriptPaths(*dir)
 		if e != nil {
 			return e
 		}
+		// calculate-total-tokens must not recount historical child usage: the
+		// parent is restricted to the suffix after Entire's cursor, so every
+		// child counts only from the byte cursor recorded by the last pass.
+		// File extraction stays set-based from byte zero.
+		resume := command == "calculate-total-tokens"
+		previous := map[string]int{}
+		if resume {
+			previous = readChildOffsets(*dir)
+		}
 		sub := tokens{}
-		for _, b := range children {
+		counted := map[string]int{}
+		for _, p := range paths {
+			b, e := os.ReadFile(p)
+			if e != nil {
+				return e
+			}
 			f, _, e := extractFiles(b, 0)
 			if e != nil {
 				return e
 			}
 			files = append(files, f...)
-			u, e := tokenUsage(b, 0)
+			offset := 0
+			if resume {
+				offset = previous[filepath.Base(p)]
+			}
+			u, pos, e := tokenUsageFrom(b, offset)
 			if e != nil {
 				return e
 			}
@@ -301,6 +326,15 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			sub.Read += u.Read
 			sub.Create += u.Create
 			sub.Calls += u.Calls
+			if resume {
+				counted[filepath.Base(p)] = pos
+			}
+		}
+		if resume {
+			// Losing this state only reverts to recounting children from byte
+			// zero, so the accounting result of this pass must not depend on
+			// the cursor write succeeding.
+			_ = writeChildOffsets(*dir, counted)
 		}
 		if sub.Calls > 0 {
 			t.Sub = &sub

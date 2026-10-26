@@ -160,6 +160,44 @@ func TestRejectForeignSessionAndPathEscapes(t *testing.T) {
 		t.Log("symlink creation unavailable:", e)
 	}
 }
+
+// A session or sidecar path inside the managed store must refuse to follow a
+// symlink planted there that points outside it, or ReadSession would return
+// external file contents as restored session state.
+func TestReadSessionRefusesEscapingStoreSymlinks(t *testing.T) {
+	repo, _ := setup(t)
+	dir, _ := New().GetSessionDir(repo)
+	if e := os.MkdirAll(dir, 0700); e != nil {
+		t.Fatal(e)
+	}
+	outside := filepath.Join(t.TempDir(), "outside.jsonl")
+	put(t, outside, []byte("EXTERNAL_CONTENT_NOT_A_SESSION\n"))
+	evil, e := json.Marshal(protocol.AgentSessionJSON{SessionID: "session_evil", AgentName: "kimi-code", NativeData: []byte("EXTERNAL_CONTENT_NOT_A_SESSION\n")})
+	if e != nil {
+		t.Fatal(e)
+	}
+	evilSidecar := filepath.Join(t.TempDir(), "evil.session.json")
+	put(t, evilSidecar, evil)
+	link := func(target, path string) {
+		t.Helper()
+		if e := os.Symlink(target, path); e != nil {
+			t.Skip("symlink creation unavailable:", e)
+		}
+	}
+	ref := New().ResolveSessionFile(dir, "session_test")
+	link(outside, ref)
+	if _, e := New().ReadSession(&protocol.HookInputJSON{SessionID: "session_test"}); e == nil {
+		t.Fatal("ReadSession followed an escaping session symlink")
+	}
+	if e := os.Remove(ref); e != nil {
+		t.Fatal(e)
+	}
+	link(evilSidecar, ref+".session.json")
+	s, e := New().ReadSession(&protocol.HookInputJSON{SessionID: "session_test"})
+	if e == nil || s.SessionID == "session_evil" {
+		t.Fatalf("ReadSession read session state through an escaping sidecar symlink: %v %v", s, e)
+	}
+}
 func TestOffsetsPartialAppendsUnicodeAndUnknownRecords(t *testing.T) {
 	first := []byte("{\"type\":\"turn.prompt\",\"input\":[{\"type\":\"text\",\"text\":\"Ã¤Â¸â€“Ã§â€¢Å’ Ã°Å¸â„¢â€š\"}]}\n")
 	tail := []byte("{\"type\":\"future-record\"")

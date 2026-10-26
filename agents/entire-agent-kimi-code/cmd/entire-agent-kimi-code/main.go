@@ -17,7 +17,7 @@ const devVersion = "dev"
 // revisionLength bounds the VCS revision used in the fallback version.
 const revisionLength = 12
 
-// version is stamped by GoReleaser via -X main.version={{.Version}}. Ordinary
+// version is stamped by GoReleaser via -X main.version=v{{ .Version }}. Ordinary
 // builds keep the default and fall back to build information.
 var version = devVersion
 

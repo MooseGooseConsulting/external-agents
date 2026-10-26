@@ -10,7 +10,13 @@ Install an exact released version from the module tag (see the changelog for ava
 go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0
 ```
 
-Tag pushes `agents/entire-agent-kimi-code/v*` also publish platform archives and a `checksums.txt` on the repository's [Releases](https://github.com/MooseGooseConsulting/external-agents/releases) page. Download the archive for your host, verify it with `sha256sum --check --strict checksums.txt`, and extract the binary onto an **absolute** directory already on `PATH` (for example `$HOME/.local/bin`).
+Tag pushes `agents/entire-agent-kimi-code/v*` also publish platform archives and a `checksums.txt` on the repository's [Releases](https://github.com/MooseGooseConsulting/external-agents/releases) page. Download the archive for your host, verify **only that downloaded file** against `checksums.txt` (the checksum file lists all six archives, so a full `sha256sum --check` of the directory fails on the ones you did not download), and extract the binary onto an **absolute** directory already on `PATH` (for example `$HOME/.local/bin`):
+
+```bash
+grep 'entire-agent-kimi-code_linux_amd64.tar.gz' checksums.txt | sha256sum -c -
+```
+
+Substitute your archive's filename: `entire-agent-kimi-code_{linux,darwin}_{amd64,arm64}.tar.gz` or `entire-agent-kimi-code_windows_{amd64,arm64}.zip`. On macOS use `shasum -a 256 -c -` if `sha256sum` is unavailable.
 
 From a source checkout instead, `go build -o entire-agent-kimi-code.exe ./cmd/entire-agent-kimi-code` on Windows, or omit `.exe` on Linux/macOS. Copy the binary to the same kind of absolute PATH directory. Keep source in this fork so the binary can be rebuilt.
 

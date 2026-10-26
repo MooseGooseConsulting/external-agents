@@ -4,9 +4,9 @@
 Checks a GoReleaser output directory (default: dist) from the repository root:
 exactly the six expected archives (linux/darwin/windows x amd64/arm64), the
 checksums file with correct hashes, safe archive members, exactly one
-correctly named executable per archive plus README.md and CHANGELOG.md, and
-that the host-platform binary runs and reports its version and valid `info`
-JSON.
+correctly named executable per archive (carrying the exec bit in unix
+archives) plus README.md and CHANGELOG.md, and that the host-platform binary
+runs and reports its version and valid `info` JSON.
 
 Stdlib only. Intended for CI: `python agents/entire-agent-kimi-code/scripts/verify-release.py --dist dist`.
 """
@@ -92,15 +92,23 @@ def check_checksums(dist: Path, expected_archives: set[str], errors: list[str]) 
             fail(errors, f"checksum mismatch for {name}")
 
 
-def safe_member_path(name: str, archive: str, errors: list[str]) -> bool:
+def is_safe_member_path(name: str) -> bool:
     parts = name.replace("\\", "/").split("/")
     if name.startswith(("/", "\\")) or (len(parts[0]) == 2 and parts[0][1] == ":"):
-        fail(errors, f"{archive}: unsafe absolute member path {name!r}")
         return False
     if ".." in parts:
-        fail(errors, f"{archive}: unsafe member path with '..': {name!r}")
         return False
     return True
+
+
+def safe_member_path(name: str, archive: str, errors: list[str]) -> bool:
+    if is_safe_member_path(name):
+        return True
+    if ".." in name.replace("\\", "/").split("/"):
+        fail(errors, f"{archive}: unsafe member path with '..': {name!r}")
+    else:
+        fail(errors, f"{archive}: unsafe absolute member path {name!r}")
+    return False
 
 
 def check_tar_gz(path: Path, errors: list[str]) -> None:
@@ -118,10 +126,17 @@ def check_tar_gz(path: Path, errors: list[str]) -> None:
                         f"({member.type!r}); links/devices are not allowed",
                     )
                     continue
-                if member.mode & 0o111:
-                    basename = Path(member.name).name
-                    if basename != BINARY_BASE or not member.mode & 0o555:
+                if Path(member.name.replace("\\", "/")).name == BINARY_BASE:
+                    if not member.mode & 0o111:
+                        fail(
+                            errors,
+                            f"{archive}: binary member {member.name!r} is not executable "
+                            f"(mode {member.mode:04o}); shipped unix archives must carry the exec bit",
+                        )
+                    elif not member.mode & 0o555:
                         fail(errors, f"{archive}: unexpected executable member {member.name!r}")
+                elif member.mode & 0o111:
+                    fail(errors, f"{archive}: unexpected executable member {member.name!r}")
     except (tarfile.TarError, OSError) as exc:
         fail(errors, f"{archive}: cannot read archive: {exc}")
 
@@ -140,6 +155,16 @@ def check_zip(path: Path, errors: list[str]) -> None:
                     fail(errors, f"{archive}: unexpected executable member {info.filename!r}")
     except (zipfile.BadZipFile, OSError) as exc:
         fail(errors, f"{archive}: cannot read archive: {exc}")
+
+
+ARCHIVE_OS_LABEL = re.compile(r"_(linux|darwin|windows)_")
+
+
+def archive_os_label(archive: str) -> str | None:
+    match = ARCHIVE_OS_LABEL.search(archive)
+    if match is None:
+        return None
+    return match.group(1)
 
 
 def check_archive_contents(path: Path, os_name: str, errors: list[str]) -> None:
@@ -163,33 +188,58 @@ def check_archive_contents(path: Path, os_name: str, errors: list[str]) -> None:
             fail(errors, f"{archive}: {doc} not included in archive")
 
 
-def extract_host_binary(archive: Path, os_name: str, dest: Path) -> Path | None:
+def extract_host_binary(archive: Path, os_name: str, dest: Path, errors: list[str]) -> Path | None:
     wanted = binary_name(os_name)
     try:
         if archive.suffix == ".zip":
             with zipfile.ZipFile(archive) as zf:
+                infos = zf.infolist()
+                for info in infos:
+                    if not info.is_dir() and not is_safe_member_path(info.filename):
+                        fail(errors, f"{archive.name}: refusing to extract archive with unsafe member {info.filename!r}")
+                        return None
                 match = [
-                    info for info in zf.infolist()
-                    if Path(info.filename.replace("\\", "/")).name == wanted
+                    info for info in infos
+                    if not info.is_dir() and Path(info.filename.replace("\\", "/")).name == wanted
                 ]
                 if not match:
                     return None
                 zf.extract(match[0], dest)
         else:
             with tarfile.open(archive, "r:gz") as tar:
+                members = tar.getmembers()
+                for member in members:
+                    if not is_safe_member_path(member.name) or not (member.isdir() or member.isfile()):
+                        fail(
+                            errors,
+                            f"{archive.name}: refusing to extract archive with unsafe or "
+                            f"non-regular member {member.name!r}",
+                        )
+                        return None
                 match = [
-                    m for m in tar.getmembers()
+                    m for m in members
                     if m.isfile() and Path(m.name.replace("\\", "/")).name == wanted
                 ]
                 if not match:
                     return None
-                tar.extract(match[0], dest)
-    except (tarfile.TarError, zipfile.BadZipFile, OSError):
+                if os_name != "windows" and not match[0].mode & 0o111:
+                    fail(
+                        errors,
+                        f"{archive.name}: {wanted} member is not executable "
+                        f"(mode {match[0].mode:04o}); not chmodding it into place",
+                    )
+                    return None
+                extract_member = tar.extract
+                try:
+                    extract_member(match[0], dest, filter="data")
+                except TypeError:
+                    # Python older than 3.11.4/3.12 has no filter kwarg; the explicit
+                    # per-member validation above gates the same path-safety cases.
+                    extract_member(match[0], dest)
+    except (tarfile.TarError, zipfile.BadZipFile, OSError) as exc:
+        fail(errors, f"{archive.name}: could not extract {wanted}: {exc}")
         return None
-    binary = dest / wanted
-    if os_name != "windows":
-        binary.chmod(0o755)
-    return binary
+    return dest / wanted
 
 
 def host_platform() -> tuple[str, str]:
@@ -218,7 +268,7 @@ def check_host_binary(dist: Path, expected_archives: set[str], expected_version:
         fail(errors, f"host archive {archive.name} is missing; cannot execute host binary")
         return
     with tempfile.TemporaryDirectory(prefix="verify-release-") as tmp:
-        binary = extract_host_binary(archive, system, Path(tmp))
+        binary = extract_host_binary(archive, system, Path(tmp), errors)
         if binary is None:
             fail(errors, f"could not extract {binary_name(system)} from {archive.name}")
             return
@@ -298,7 +348,15 @@ def main() -> int:
                 continue
             if path.name.endswith(".tar.gz"):
                 check_tar_gz(path, errors)
-                check_archive_contents(path, "linux", errors)
+                label = archive_os_label(path.name)
+                if label is None:
+                    fail(
+                        errors,
+                        f"cannot determine OS from archive name for {path.name!r}; "
+                        f"expected _linux_, _darwin_ or _windows_ in the name",
+                    )
+                else:
+                    check_archive_contents(path, label, errors)
             elif path.suffix == ".zip":
                 check_zip(path, errors)
                 check_archive_contents(path, "windows", errors)

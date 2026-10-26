@@ -88,10 +88,11 @@ func findSubagent(subs []subagent, q subagentQuery) (subagent, int) {
 		if q.Name != "" && s.Name != q.Name || q.ID != "" && s.ID != q.ID || q.ToolID != "" && s.ToolID != q.ToolID || q.Prompt != "" && s.Prompt != q.Prompt || q.Response != "" && s.Response != q.Response {
 			continue
 		}
-		if q.Done && !s.Done {
-			continue
-		}
-		if q.ID == "" && q.ToolID == "" && q.Prompt == "" && q.Response == "" && s.Done != q.Done {
+		// The done-state filter is never waived for other correlation fields:
+		// a repeating prompt would otherwise let a new start bind to an older
+		// completed child. A start matches only a pending or active child, a
+		// stop only a finished one; if no side matches, there is no match.
+		if s.Done != q.Done {
 			continue
 		}
 		found = s
@@ -152,7 +153,7 @@ func copySubagents(native, ref, id string) error {
 	}
 	return nil
 }
-func childTranscripts(dir string) ([][]byte, error) {
+func childTranscriptPaths(dir string) ([]string, error) {
 	// The subagents directory is optional and located by convention from the
 	// transcript path. A path that is missing, or that resolves under a
 	// non-directory (e.g. a transcript whose name is not ".jsonl"), simply has
@@ -173,7 +174,7 @@ func childTranscripts(dir string) ([][]byte, error) {
 		return nil, e
 	}
 	root, _ := canonical(dir)
-	out := [][]byte{}
+	out := []string{}
 	for _, ent := range entries {
 		if ent.IsDir() || filepath.Ext(ent.Name()) != ".jsonl" {
 			continue
@@ -183,6 +184,20 @@ func childTranscripts(dir string) ([][]byte, error) {
 		if e != nil || !within(root, actual) {
 			continue
 		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+func childTranscripts(dir string) ([][]byte, error) {
+	paths, e := childTranscriptPaths(dir)
+	if e != nil {
+		return nil, e
+	}
+	if paths == nil {
+		return nil, nil
+	}
+	out := [][]byte{}
+	for _, p := range paths {
 		b, e := os.ReadFile(p)
 		if e != nil {
 			return nil, e

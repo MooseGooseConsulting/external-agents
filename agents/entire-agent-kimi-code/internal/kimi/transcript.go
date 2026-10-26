@@ -301,8 +301,10 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		// transcript has grown is a new pass even at --offset 0. A zero
 		// offset means a full recalculation, so children count in full too,
 		// mirroring the parent treatment.
-		// File extraction stays set-based from byte zero.
-		resume := command == "calculate-total-tokens"
+		// File extraction stays set-based from byte zero. A dir that is
+		// missing or resolves under a regular file has no children and no
+		// cursor state: persistence is skipped along with counting.
+		resume := command == "calculate-total-tokens" && paths != nil
 		previous := childOffsetState{Cursors: map[string]int{}}
 		replay := false
 		if resume {

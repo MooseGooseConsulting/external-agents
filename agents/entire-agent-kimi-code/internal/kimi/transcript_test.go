@@ -212,6 +212,31 @@ func TestChildTranscriptsToleratesPathUnderFile(t *testing.T) {
 	}
 }
 
+// A subagents dir that resolves under a regular file is the tolerated
+// convention for "no children": totals must still return, and cursor state
+// must not be written through the non-directory path.
+func TestTotalTokensToleratesSubagentsDirUnderFile(t *testing.T) {
+	setup(t) // pin byte offsets
+	root := t.TempDir()
+	put(t, filepath.Join(root, "test-transcript.json"), []byte(`{}`))
+	under := filepath.Join(root, "test-transcript.json", "subagents")
+	main := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":1,\"output\":1}}\n")
+	var out bytes.Buffer
+	if e := New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", under}, bytes.NewReader(main), &out); e != nil {
+		t.Fatal(e)
+	}
+	var u tokens
+	if e := json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Input != 1 || u.Calls != 1 || u.Sub != nil {
+		t.Fatalf("parent totals wrong: %+v", u)
+	}
+	if _, e := os.Stat(filepath.Join(under, childOffsetsFile)); !os.IsNotExist(e) {
+		t.Fatalf("cursor state written through non-directory: %v", e)
+	}
+}
+
 func TestExtractModifiedFilesDedupesMainAndChild(t *testing.T) {
 	root := t.TempDir()
 	main := filepath.Join(root, "sess.jsonl")

@@ -55,6 +55,24 @@ jobs:
             gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.tar.gz dist/checksums.txt \
               --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
               --title "entire-agent-kimi-code ${GITHUB_REF_NAME##*/}"
+          else
+            # The release exists: upload only the expected assets that are
+            # missing so a partial publication can heal on rerun. Publication
+            # is skipped only when every expected asset is already present.
+            present="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+            missing=()
+            for file in dist/*.zip dist/*.tar.gz dist/checksums.txt; do
+              name="$(basename "$file")"
+              if ! grep -Fxq -- "$name" <<<"$present"; then
+                missing+=("$file")
+              fi
+            done
+            if [ "${#missing[@]}" -eq 0 ]; then
+              echo "All expected assets already published; skipping."
+            else
+              echo "Uploading missing assets: ${missing[*]}"
+              gh release upload "$GITHUB_REF_NAME" "${missing[@]}" --repo "$GITHUB_REPOSITORY"
+            fi
           fi
 
   verify-release:

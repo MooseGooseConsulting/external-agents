@@ -186,6 +186,24 @@ func managedPath(ref string) error {
 	}
 	return nil
 }
+
+// storeContained requires path, after resolving every symlink along it, to
+// remain inside the managed session store. managedPath guards .jsonl writes,
+// but derived read paths such as the sidecar metadata file have no such
+// check: a link planted inside the store that points outside would otherwise
+// hand external file contents back as session state.
+func storeContained(path string) error {
+	dir, _ := New().GetSessionDir(protocol.RepoRoot())
+	p, e := canonical(path)
+	if e != nil {
+		return e
+	}
+	root, _ := canonical(dir)
+	if !within(root, p) {
+		return errors.New("session read escapes the Entire-owned store")
+	}
+	return nil
+}
 func snapshot(id, repo string) (string, error) {
 	source, e := nativeSession(id, repo)
 	if e != nil {
@@ -233,7 +251,11 @@ func (a *Agent) ReadSession(in *protocol.HookInputJSON) (protocol.AgentSessionJS
 		return protocol.AgentSessionJSON{}, e
 	}
 	// Restored sessions are Entire-owned, never passed off as native Kimi state.
-	if b, e := os.ReadFile(ref + ".session.json"); e == nil {
+	sidecar := ref + ".session.json"
+	if e := storeContained(sidecar); e != nil {
+		return protocol.AgentSessionJSON{}, e
+	}
+	if b, e := os.ReadFile(sidecar); e == nil {
 		var s protocol.AgentSessionJSON
 		if json.Unmarshal(b, &s) == nil {
 			return s, nil
@@ -337,7 +359,10 @@ func (a *Agent) ParseHook(name string, b []byte) (*protocol.EventJSON, error) {
 	if name == "stop" && len(subs) > 0 && !mainReadyForStop(ref) {
 		return nil, nil
 	}
-	if kind == 3 && name != "stop" && hasForegroundSubagent(subs) {
+	// A child's own stop-class hook must not close the parent turn, but a
+	// parent-level interrupt or stop-failure still ends the parent turn even
+	// while a foreground child runs, or the turn could never return to idle.
+	if kind == 3 && name != "stop" && hasForegroundSubagent(subs) && childAttributed(p) {
 		return nil, nil
 	}
 	ev := &protocol.EventJSON{Type: kind, SessionID: p.ID, SessionRef: ref, Prompt: contentText(p.Prompt), Model: p.Model, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), SubagentID: p.SubID, SubagentType: p.AgentType, TaskDescription: p.Description, ToolUseID: p.ToolID, Metadata: map[string]string{"hook": name}}
@@ -390,6 +415,14 @@ func (a *Agent) ParseHook(name string, b []byte) (*protocol.EventJSON, error) {
 		}
 	}
 	return ev, nil
+}
+
+// childAttributed reports whether a hook payload itself belongs to a
+// subagent rather than the main conversation. Kimi marks child-originated
+// hooks with the child's identity fields; the captured main-turn Interrupt
+// and StopFailure payloads carry none.
+func childAttributed(p hookPayload) bool {
+	return p.SubID != "" || p.AgentID != "" || p.Name != "" || p.AgentType != ""
 }
 
 // turnOrigin mirrors the origin markers a TurnStarted payload carries. Kimi

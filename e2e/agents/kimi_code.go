@@ -104,5 +104,14 @@ func (q *KimiCode) RunPrompt(ctx context.Context, dir string, prompt string, opt
 }
 
 func (q *KimiCode) StartSession(_ context.Context, dir string) (Session, error) {
-	return NewTmuxSession(fmt.Sprintf("kimi-e2e-%d", time.Now().UnixNano()), dir, []string{"ENTIRE_TEST_TTY"}, "kimi", "--auto")
+	s, err := NewTmuxSession(fmt.Sprintf("kimi-e2e-%d", time.Now().UnixNano()), dir, []string{"ENTIRE_TEST_TTY"}, "kimi", "--auto")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.WaitFor(q.PromptPattern(), 30*time.Second); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("waiting for initial prompt: %w", err)
+	}
+	s.stableAtSend = ""
+	return s, nil
 }

@@ -237,6 +237,50 @@ func TestLifecycleFailureAndInterruptTranscripts(t *testing.T) {
 	}
 }
 
+// A parent-level Interrupt or StopFailure must still close the parent's turn
+// while a foreground child runs, or an interrupted turn could never return to
+// idle. Child-attributed stop-class hooks stay silent: they describe the
+// child, not the parent turn.
+func TestParentStopClassHooksSurviveForegroundChild(t *testing.T) {
+	repo, home := setup(t)
+	path := nativeFixture(t, repo, home)
+	main, e := os.ReadFile("../../testdata/transcripts/subagent-main.jsonl")
+	if e != nil {
+		t.Fatal(e)
+	}
+	// Truncate before the child completes so agent-0 is a foreground child
+	// mid-flight, the state TestSubagentCorrelationAndChildStops reproduces.
+	var active bytes.Buffer
+	for _, line := range bytes.SplitAfter(main, []byte{'\n'}) {
+		if bytes.Contains(line, []byte(`"type":"subagent.completed"`)) || bytes.Contains(line, []byte(`"type": "subagent.completed"`)) {
+			break
+		}
+		active.Write(line)
+	}
+	put(t, path, active.Bytes())
+	interrupt, _ := json.Marshal(map[string]any{"session_id": "session_test", "cwd": repo, "reason": "cancelled"})
+	ev, e := New().ParseHook("interrupt", interrupt)
+	if e != nil || ev == nil || ev.Type != 3 || ev.Metadata["outcome"] != "interrupt" {
+		t.Fatalf("parent interrupt swallowed while a foreground child was active: %v %v", ev, e)
+	}
+	if ev.SubagentID != "" || ev.SubagentType != "" || ev.ToolUseID != "" {
+		t.Fatalf("parent interrupt was attributed to a child: %+v", ev)
+	}
+	failure, _ := json.Marshal(map[string]any{"session_id": "session_test", "cwd": repo, "error_type": "APIStatusError", "error_message": "400 Intentional Entire integration test failure"})
+	ev, e = New().ParseHook("stop-failure", failure)
+	if e != nil || ev == nil || ev.Type != 3 || ev.Metadata["error_type"] != "APIStatusError" {
+		t.Fatalf("parent stop-failure swallowed while a foreground child was active: %v %v", ev, e)
+	}
+	child, _ := json.Marshal(map[string]any{"session_id": "session_test", "cwd": repo, "agent_name": "coder", "reason": "cancelled"})
+	if ev, e = New().ParseHook("interrupt", child); e != nil || ev != nil {
+		t.Fatalf("child interrupt closed the parent turn: %v %v", ev, e)
+	}
+	childFailure, _ := json.Marshal(map[string]any{"session_id": "session_test", "cwd": repo, "agent_name": "coder", "error_type": "APIStatusError"})
+	if ev, e = New().ParseHook("stop-failure", childFailure); e != nil || ev != nil {
+		t.Fatalf("child stop-failure closed the parent turn: %v %v", ev, e)
+	}
+}
+
 func TestCapturedLifecycleEdgesPreserveNativeLog(t *testing.T) {
 	for _, tc := range []struct {
 		event, hook, transcript, metadata, value string

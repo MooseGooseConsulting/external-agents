@@ -232,8 +232,10 @@ func TestTotalTokensToleratesSubagentsDirUnderFile(t *testing.T) {
 	if u.Input != 1 || u.Calls != 1 || u.Sub != nil {
 		t.Fatalf("parent totals wrong: %+v", u)
 	}
-	if _, e := os.Stat(filepath.Join(under, childOffsetsFile)); !os.IsNotExist(e) {
-		t.Fatalf("cursor state written through non-directory: %v", e)
+	// Any error means nothing was persisted: not-exist, or ENOTDIR on Unix
+	// where the path resolves beneath a regular file.
+	if _, e := os.Stat(filepath.Join(under, childOffsetsFile)); e == nil {
+		t.Fatalf("cursor state written through non-directory")
 	}
 }
 
@@ -383,17 +385,37 @@ func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
 	if u.Sub == nil || u.Sub.Input != 200 || u.Sub.Output != 20 || u.Sub.Calls != 1 || u.Input != 202 || u.Output != 22 {
 		t.Fatalf("retry of later pass inflated child totals: %+v", u)
 	}
-	// A full recalculation (--offset 0) after growth is a new pass, not a
-	// replay: the parent endpoint differs from the recorded one, so children
-	// count in full, mirroring the parent.
+	// Repeating that offset with a grown parent is a recalculation, not a
+	// replay: the parent recounts its entire suffix, so the child extends
+	// the recorded range from its start (200+300=500), not from the last
+	// end cursor (which would report only the new 300).
+	third := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":300,\"output\":30}}\n")
+	put(t, child, append(append([]byte{}, first...), append(second, third...)...))
+	main3 := append(append([]byte{}, main2...), []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":3,\"output\":3}}\n")...)
 	out.Reset()
-	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub}, bytes.NewReader(main2), &out); e != nil {
+	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub, "--offset", strconv.Itoa(len(main))}, bytes.NewReader(main3), &out); e != nil {
 		t.Fatal(e)
 	}
 	if e = json.Unmarshal(out.Bytes(), &u); e != nil {
 		t.Fatal(e)
 	}
-	if u.Sub == nil || u.Sub.Input != 300 || u.Sub.Calls != 2 || u.Input != 303 || u.Output != 33 {
+	if u.Sub == nil || u.Sub.Input != 500 || u.Sub.Output != 50 || u.Sub.Calls != 2 {
+		t.Fatalf("recalculation ignored recorded child range start: %+v", u)
+	}
+	if u.Input != 505 || u.Output != 55 {
+		t.Fatalf("recalculation parent suffix wrong: %+v", u)
+	}
+	// A full recalculation (--offset 0) after growth is a new pass, not a
+	// replay: the parent endpoint differs from the recorded one, so children
+	// count in full, mirroring the parent.
+	out.Reset()
+	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub}, bytes.NewReader(main3), &out); e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 600 || u.Sub.Calls != 3 || u.Input != 606 || u.Output != 66 {
 		t.Fatalf("full recalculation truncated child history: %+v", u)
 	}
 }

@@ -329,7 +329,15 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			name := filepath.Base(p)
 			base := 0
 			if resume && *offset != 0 {
-				base = previous.Cursors[name]
+				if previous.Offset == *offset {
+					// Same starting offset with a grown parent: the parent
+					// recounts its entire suffix, so the child extends the
+					// recorded range for this offset from its start cursor,
+					// keeping both totals over the same window.
+					base = previous.Start[name]
+				} else {
+					base = previous.Cursors[name]
+				}
 			}
 			start := base
 			if replay {

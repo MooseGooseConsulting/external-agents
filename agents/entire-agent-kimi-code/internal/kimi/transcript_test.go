@@ -358,4 +358,17 @@ func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
 	if u.Sub == nil || u.Sub.Input != 200 || u.Sub.Output != 20 || u.Sub.Calls != 1 || u.Input != 202 || u.Output != 22 {
 		t.Fatalf("retry of later pass inflated child totals: %+v", u)
 	}
+	// A full recalculation (--offset 0) after growth is a new pass, not a
+	// replay: the parent endpoint differs from the recorded one, so children
+	// count in full, mirroring the parent.
+	out.Reset()
+	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub}, bytes.NewReader(main2), &out); e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 300 || u.Sub.Calls != 2 || u.Input != 303 || u.Output != 33 {
+		t.Fatalf("full recalculation truncated child history: %+v", u)
+	}
 }

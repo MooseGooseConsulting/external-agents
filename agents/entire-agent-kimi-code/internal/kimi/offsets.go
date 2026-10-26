@@ -93,9 +93,10 @@ func outputOffset(b []byte, pos int) int {
 const childOffsetsFile = "read-offsets.json"
 
 type childOffsetState struct {
-	Offset  int            `json:"offset"`
-	Start   map[string]int `json:"start"`
-	Cursors map[string]int `json:"cursors"`
+	Offset    int            `json:"offset"`
+	ParentEnd int            `json:"parent_end"`
+	Start     map[string]int `json:"start"`
+	Cursors   map[string]int `json:"cursors"`
 }
 
 func readChildOffsets(dir string) (childOffsetState, bool) {

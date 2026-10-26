@@ -283,7 +283,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 	if e != nil {
 		return e
 	}
-	t, e := tokenUsage(b, byteOffset)
+	t, parentEnd, e := tokenUsageFrom(b, byteOffset)
 	if e != nil {
 		return e
 	}
@@ -295,8 +295,12 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		// calculate-total-tokens must not recount historical child usage: the
 		// parent is restricted to the suffix after Entire's cursor, so every
 		// child counts only from the byte cursor recorded by the last pass.
-		// A pass re-requested with the same parent offset replays the recorded
-		// range verbatim, so a retried hook returns identical tokens.
+		// A pass re-requested with the same parent offset AND the same parent
+		// transcript endpoint replays the recorded range verbatim, so a
+		// retried hook returns identical tokens; a recalculation whose parent
+		// transcript has grown is a new pass even at --offset 0. A zero
+		// offset means a full recalculation, so children count in full too,
+		// mirroring the parent treatment.
 		// File extraction stays set-based from byte zero.
 		resume := command == "calculate-total-tokens"
 		previous := childOffsetState{Cursors: map[string]int{}}
@@ -304,7 +308,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		if resume {
 			if state, ok := readChildOffsets(*dir); ok {
 				previous = state
-				replay = state.Offset == *offset
+				replay = state.Offset == *offset && state.ParentEnd == parentEnd
 			}
 		}
 		sub := tokens{}
@@ -322,7 +326,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			files = append(files, f...)
 			name := filepath.Base(p)
 			base := 0
-			if resume {
+			if resume && *offset != 0 {
 				base = previous.Cursors[name]
 			}
 			start := base
@@ -330,8 +334,9 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 				// Same invocation retried: reproduce the first result rather
 				// than advancing; bytes appended after the recorded end cursor
 				// are deliberately excluded so retries stay deterministic.
-				b = b[:min(base, len(b))]
-				start = min(previous.Start[name], base)
+				end := min(previous.Cursors[name], len(b))
+				b = b[:end]
+				start = min(previous.Start[name], end)
 			}
 			u, pos, e := tokenUsageFrom(b, start)
 			if e != nil {
@@ -351,7 +356,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			// The command must fail rather than report tokens whose cursor
 			// could not be saved: returning success would let the next pass
 			// recount this usage once the write succeeds.
-			if e := writeChildOffsets(*dir, childOffsetState{Offset: *offset, Start: starts, Cursors: counted}); e != nil {
+			if e := writeChildOffsets(*dir, childOffsetState{Offset: *offset, ParentEnd: parentEnd, Start: starts, Cursors: counted}); e != nil {
 				return e
 			}
 		}

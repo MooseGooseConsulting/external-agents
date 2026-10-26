@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "PreCompact",
+  "session_id": "session_lifecycle",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "session_title": "Lifecycle Probe Session",
+  "trigger": "manual",
+  "token_count": 25034
+}

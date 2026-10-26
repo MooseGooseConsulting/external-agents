@@ -1,0 +1,13 @@
+{
+  "transcript_analyzer": {
+    "session_ref": "transcripts/normal.jsonl",
+    "modified_files": [
+      "kimi-integration-probe.txt"
+    ],
+    "prompts": [
+      "Create exactly one file named kimi-integration-probe.txt containing ENTIRE_KIMI_PROBE_20261025. Use the Write tool. Do not run git or spawn subagents. Then answer PROBE_DONE."
+    ],
+    "summary": "PROBE_DONE",
+    "has_summary": true
+  }
+}

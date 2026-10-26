@@ -1,0 +1,46 @@
+# Release packaging for the entire-agent-kimi-code adapter module only.
+# Free (OSS) GoReleaser v2. No signing, Pro features, Scoop/Homebrew, S3 or telemetry.
+version: 2
+
+project_name: entire-agent-kimi-code
+
+builds:
+  - id: entire-agent-kimi-code
+    # Nested Go module; the build runs from its directory.
+    dir: agents/entire-agent-kimi-code
+    main: ./cmd/entire-agent-kimi-code
+    binary: entire-agent-kimi-code
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version=v{{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: entire-agent-kimi-code
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - src: agents/entire-agent-kimi-code/README.md
+        strip_parent: true
+      - src: agents/entire-agent-kimi-code/CHANGELOG.md
+        strip_parent: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256

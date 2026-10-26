@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "StopFailure",
+  "session_id": "session_lifecycle",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "error_type": "APITimeoutError",
+  "error_message": "Request timed out."
+}

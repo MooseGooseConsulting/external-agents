@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "SubagentStop",
+  "session_id": "session_test",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "agent_name": "coder",
+  "response": "Done. Created `subagent-proof.txt` in the working directory with exactly the content `SUBAGENT_CAPTURE_OK` (19 bytes), and verified by reading it back without git \u00e2\u20ac\u201d the file contains that single line and nothing else. No other files were created or modified."
+}

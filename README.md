@@ -26,12 +26,13 @@ External agents communicate with Entire CLI via subcommands that accept and retu
 | [Kilo](agents/entire-agent-kilo/) | `agents/entire-agent-kilo/` | Implemented (preview) — hooks + transcript analysis + token calculation + compact transcripts |
 | [Goose](agents/entire-agent-goose/) | `agents/entire-agent-goose/` | Implemented (preview) — hooks + transcript analysis + token calculation + compact transcripts |
 | [Hermes Agent](agents/entire-agent-hermes/) | `agents/entire-agent-hermes/` | Implemented (preview) — sanitized observer hooks + transcript analysis + compact transcripts |
+| [Kimi Code](agents/entire-agent-kimi-code/) | `agents/entire-agent-kimi-code/` | Implemented — native wire capture, hooks, token accounting and concurrent subagent transcripts |
 
 See each agent's own README for setup and usage instructions.
 
 ## Enabling External Agents
 
-External agent discovery is opt-in. Once an `entire-agent-<name>` binary is on your `PATH`, set `external_agents: true` in the repo's `.entire/settings.json` so Entire scans for it:
+External agent discovery is opt-in. Once an `entire-agent-<name>` binary is on an absolute directory in your `PATH`, set `external_agents: true` in the repo's untracked `.entire/settings.local.json` so Entire scans for it:
 
 ```json
 {
@@ -116,6 +117,26 @@ hermes --yolo --ignore-rules -z "Create hello.txt with hello world"
 
 One profile can register multiple repositories. Uninstalling the adapter from one repository leaves unrelated Hermes plugins and other repository registrations intact. See the [Hermes adapter README](agents/entire-agent-hermes/) for the disposable-profile verification flow.
 
+### Kimi Code
+
+Kimi support is a standalone Go binary. Install an exact released version (see the [Kimi Code changelog](agents/entire-agent-kimi-code/CHANGELOG.md) for available versions):
+
+```bash
+go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0
+```
+
+Tag pushes `agents/entire-agent-kimi-code/v*` also publish platform archives and `checksums.txt` on the [Releases](https://github.com/MooseGooseConsulting/external-agents/releases) page; verify a downloaded archive with `sha256sum --check --strict checksums.txt` before extracting its binary onto an absolute PATH directory.
+
+Enable per repository:
+
+```bash
+cd /path/to/your/repo
+entire enable --agent kimi-code --local --skip-push-sessions
+entire agent list
+```
+
+There is no auto-update and nothing runs between sessions; upgrades and downgrades are explicit reinstalls of a different tag's binary. No Kimi plugin is installed — nine managed hook rules are appended to Kimi's config once, globally, and dispatch only in Entire-enabled repositories. To remove, run `entire-agent-kimi-code uninstall-hooks` and delete the binary from the PATH directory; existing checkpoints remain. See the [Kimi Code README](agents/entire-agent-kimi-code/) for native wire capture, token accounting, and the Entire 0.12.1 cursor compatibility mode.
+
 ## Building a New External Agent
 
 This repo includes a skill that guides you through building a new external agent with two test layers:
@@ -189,6 +210,7 @@ The lifecycle harness auto-discovers and builds all agents in `agents/` via `Tes
 | `E2E_CONCURRENT_TEST_LIMIT` | Override the per-agent lifecycle concurrency limit |
 | `QWEN_E2E` | Set to `1` with `E2E_AGENT=qwen` to run live Qwen Code lifecycle tests |
 | `HERMES_E2E` | Set to `1` with `E2E_AGENT=hermes` and an explicit disposable `HERMES_HOME` to run live Hermes lifecycle tests |
+| `KIMI_E2E` | Set to `1` with `E2E_AGENT=kimi-code` to run live Kimi Code lifecycle tests |
 
 ## Repository Layout
 
@@ -202,6 +224,7 @@ agents/                          # Standalone external agent projects
   entire-agent-omp/              # Oh My Pi agent (Go binary)
   entire-agent-kilo/             # Kilo agent (Go binary)
   entire-agent-hermes/           # Hermes Agent (Go binary + embedded observer plugin)
+  entire-agent-kimi-code/        # Kimi Code agent (Go binary)
 e2e/                             # Lifecycle integration harness
 .github/workflows/               # CI, including protocol compliance via external-agents-tests
 .claude/skills/entire-external-agent/  # Skill files (research, test-writer, implementer)

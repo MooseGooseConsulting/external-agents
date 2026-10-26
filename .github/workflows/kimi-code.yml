@@ -1,0 +1,61 @@
+name: Kimi Code adapter
+on:
+  push:
+    branches: [main, agent/kimi-code, codex/kimi-local]
+    paths: ['agents/entire-agent-kimi-code/**', '.github/workflows/kimi-code.yml']
+  pull_request:
+    paths: ['agents/entire-agent-kimi-code/**', '.github/workflows/kimi-code.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Unit and captured lifecycle regressions
+        working-directory: agents/entire-agent-kimi-code
+        run: |
+          go test -count=1 ./...
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          go vet ./...
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          go build -o "$env:RUNNER_TEMP/entire-agent-kimi-code$suffix" ./cmd/entire-agent-kimi-code
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Pinned upstream protocol suite with semantic fixtures
+        run: |
+          go install github.com/entireio/external-agents-tests@v0.0.0-20260328221431-3220ca8cc7ba
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $suffix = if ($IsWindows) { '.exe' } else { '' }
+          $binary = "$env:RUNNER_TEMP/entire-agent-kimi-code$suffix"
+          python agents/entire-agent-kimi-code/scripts/verify-protocol.py $binary
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+  package-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Snapshot package all targets
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          distribution: goreleaser
+          version: v2.12.7
+          args: release --snapshot --clean --config .goreleaser.kimi-code.yaml
+      - name: Verify snapshot artifacts
+        run: python agents/entire-agent-kimi-code/scripts/verify-release.py --dist dist

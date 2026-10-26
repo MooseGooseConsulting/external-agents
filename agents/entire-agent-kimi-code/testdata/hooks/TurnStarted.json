@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "TurnStarted",
+  "session_id": "session_probe",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "turn_id": 0,
+  "origin_kind": "user",
+  "prompt": "Create exactly one file named kimi-integration-probe.txt containing ENTIRE_KIMI_PROBE_20261025. Use the Write tool. Do not run git or spawn subagents. Then answer PROBE_DONE."
+}

@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "Stop",
+  "session_id": "session_probe",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "stop_hook_active": false
+}

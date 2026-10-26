@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "SubagentStart",
+  "session_id": "session_test",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "agent_name": "coder",
+  "prompt": "In the current working directory /test/repo, create exactly one new file named subagent-proof.txt whose entire content is SUBAGENT_CAPTURE_OK. Do not create or modify any other files. Do not use git. Verify the file content without git, then report completion."
+}

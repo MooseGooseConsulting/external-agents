@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "SessionEnd",
+  "session_id": "session_lifecycle",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "reason": "exit",
+  "session_title": "Lifecycle Probe Session"
+}

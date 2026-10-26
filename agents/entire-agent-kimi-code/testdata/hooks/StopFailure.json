@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "StopFailure",
+  "session_id": "session_test",
+  "cwd": "/test/repo",
+  "client_type": "kimi_code_cli",
+  "error_type": "APIStatusError",
+  "error_message": "400 Intentional Entire integration test failure"
+}

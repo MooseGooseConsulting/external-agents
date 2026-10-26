@@ -5,9 +5,9 @@ _.path = ["bin"]
 ruby.compile = false
 
 [tools]
-go = "1.26.0"
-golangci-lint = "2.11.3"
-ruby = { version = "3.4.7", postinstall = "gem install license_finder -v 7.2.1" }
+go = "1.27.3"
+golangci-lint = "2.15.0"
+ruby = { version = "3.4.11", postinstall = "gem install license_finder -v 7.2.1" }
 tmux = "latest"
 "go:github.com/entireio/external-agents-tests" = "v0.0.0-20260328221431-3220ca8cc7ba"
 

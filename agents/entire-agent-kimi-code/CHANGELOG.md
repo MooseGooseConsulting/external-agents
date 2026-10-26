@@ -42,7 +42,7 @@ convention.
   with SHA-pinned GoReleaser, publishing them to the nested tag with GitHub
   CLI, and running post-release checksum plus host executable verification.
 - Exact-version installation via
-  `go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@agents/entire-agent-kimi-code/v0.1.0`.
+  `go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0`.
 - No Kimi plugin is installed, no daemon runs, and there is no auto-update.
 
 [0.1.0]: https://github.com/MooseGooseConsulting/external-agents/releases/tag/agents%2Fentire-agent-kimi-code%2Fv0.1.0

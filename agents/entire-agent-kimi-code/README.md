@@ -7,7 +7,7 @@ Locally maintained in [MooseGooseConsulting/external-agents](https://github.com/
 Install an exact released version from the module tag (see the changelog for available versions):
 
 ```bash
-go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@agents/entire-agent-kimi-code/v0.1.0
+go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0
 ```
 
 Tag pushes `agents/entire-agent-kimi-code/v*` also publish platform archives and a `checksums.txt` on the repository's [Releases](https://github.com/MooseGooseConsulting/external-agents/releases) page. Download the archive for your host, verify it with `sha256sum --check --strict checksums.txt`, and extract the binary onto an **absolute** directory already on `PATH` (for example `$HOME/.local/bin`).

@@ -44,12 +44,11 @@ Observed 2026-10-25 on Windows amd64 with Kimi 2.3.2, Entire 0.12.1, and Go 1.27
 
 ## Release packaging evidence
 
-Observed 2026-10-26 at revision `2f886f0`:
+Observed 2026-10-26: the candidate tag `agents/entire-agent-kimi-code/v0.1.0` at commit `bf3b64c` produced release run [40284995747](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40284995747), which passed GoReleaser publish and the workflow's post-download verification. The published release carries seven assets: `checksums.txt` plus six platform archives (darwin amd64/arm64, linux amd64/arm64, windows amd64/arm64).
 
-- Local GoReleaser v2.12.7 snapshot (`release --snapshot --clean --config .goreleaser.kimi-code.yaml`) succeeded, and `scripts/verify-release.py --dist dist` passed against its output, including all six platform archives, `checksums.txt`, and the packaged Windows binary's embedded version and module information.
-- The pre-release CI matrix run [40283545578](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40283545578) passed on Windows, macOS and Ubuntu, including the `package-snapshot` job that runs the same snapshot and verifier in CI. Inherited CI [40283545613](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40283545613), lint [40283545631](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40283545631), protocol [40283545550](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40283545550) and license [40283546502](https://github.com/MooseGooseConsulting/external-agents/actions/runs/40283546502) are all green at the same revision.
-
-**Still pending:** no `agents/entire-agent-kimi-code/v0.1.0` tag has been created, no GitHub release exists, and the `kimi-code-release.yml` tag run — downloading a published archive, checking `checksums.txt`, and verifying the extracted host executable — has not happened and is not claimed here.
+- Exact clean install `go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0` succeeded, and the installed binary passed the pinned upstream protocol suite through `scripts/verify-protocol.py`.
+- The Windows amd64 archive executable's SHA-256 `72021bc2790394139fb3b1429bd9ca49f348b53474ea18529b864f06a2e470d4` was byte-identical to the production binary installed on PATH. A real smoke run against that published binary recorded capture checkpoint `01M5VHBEZ8XFJ0AF6F3N2E5WGT` and resumed checkpoint `01M5VHDKY8NHF7V4RBBFCVE3ZA` in session `session_c4f2cb23-3c20-4861-b0c9-c7f40efc5ee5`, with exactly 3 new usage records matching the native log delta on resume.
+- Documentation correction: the earlier install command used the invalid long form `@agents/entire-agent-kimi-code/v0.1.0`; nested Go modules install with bare semantic versions, so the documentation now uses `@v0.1.0`. Publishable archives must bundle this corrected instruction.
 
 ## Limits and preservation
 

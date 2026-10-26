@@ -122,7 +122,7 @@ One profile can register multiple repositories. Uninstalling the adapter from on
 Kimi support is a standalone Go binary. Install an exact released version (see the [Kimi Code changelog](agents/entire-agent-kimi-code/CHANGELOG.md) for available versions):
 
 ```bash
-go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@agents/entire-agent-kimi-code/v0.1.0
+go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0
 ```
 
 Tag pushes `agents/entire-agent-kimi-code/v*` also publish platform archives and `checksums.txt` on the [Releases](https://github.com/MooseGooseConsulting/external-agents/releases) page; verify a downloaded archive with `sha256sum --check --strict checksums.txt` before extracting its binary onto an absolute PATH directory.

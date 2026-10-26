@@ -94,6 +94,7 @@ const childOffsetsFile = "read-offsets.json"
 
 type childOffsetState struct {
 	Offset  int            `json:"offset"`
+	Start   map[string]int `json:"start"`
 	Cursors map[string]int `json:"cursors"`
 }
 
@@ -106,14 +107,19 @@ func readChildOffsets(dir string) (childOffsetState, bool) {
 	if json.Unmarshal(b, &s) != nil || s.Cursors == nil {
 		return childOffsetState{}, false
 	}
-	for name, offset := range s.Cursors {
-		if offset < 0 {
-			delete(s.Cursors, name)
+	for _, m := range []map[string]int{s.Start, s.Cursors} {
+		for name, offset := range m {
+			if offset < 0 {
+				delete(m, name)
+			}
 		}
 	}
 	return s, true
 }
 func writeChildOffsets(dir string, s childOffsetState) error {
+	if s.Start == nil {
+		s.Start = map[string]int{}
+	}
 	if s.Cursors == nil {
 		s.Cursors = map[string]int{}
 	}

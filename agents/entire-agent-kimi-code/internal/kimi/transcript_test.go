@@ -345,4 +345,17 @@ func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
 	if u.Input != 202 || u.Output != 22 {
 		t.Fatalf("parent suffix or totals wrong: %+v", u)
 	}
+	// Retrying that same later pass must replay only its own range: a retry
+	// here counts the recorded [len(first), end) window again, not everything
+	// from byte zero.
+	out.Reset()
+	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub, "--offset", strconv.Itoa(len(main))}, bytes.NewReader(main2), &out); e != nil {
+		t.Fatal(e)
+	}
+	if e = json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 200 || u.Sub.Output != 20 || u.Sub.Calls != 1 || u.Input != 202 || u.Output != 22 {
+		t.Fatalf("retry of later pass inflated child totals: %+v", u)
+	}
 }

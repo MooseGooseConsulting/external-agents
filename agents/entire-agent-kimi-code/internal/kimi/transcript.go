@@ -296,7 +296,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		// parent is restricted to the suffix after Entire's cursor, so every
 		// child counts only from the byte cursor recorded by the last pass.
 		// A pass re-requested with the same parent offset replays the recorded
-		// accounting verbatim, so a retried hook returns identical tokens.
+		// range verbatim, so a retried hook returns identical tokens.
 		// File extraction stays set-based from byte zero.
 		resume := command == "calculate-total-tokens"
 		previous := childOffsetState{Cursors: map[string]int{}}
@@ -308,6 +308,7 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			}
 		}
 		sub := tokens{}
+		starts := map[string]int{}
 		counted := map[string]int{}
 		for _, p := range paths {
 			b, e := os.ReadFile(p)
@@ -319,17 +320,18 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 				return e
 			}
 			files = append(files, f...)
+			name := filepath.Base(p)
 			base := 0
 			if resume {
-				base = previous.Cursors[filepath.Base(p)]
+				base = previous.Cursors[name]
 			}
 			start := base
 			if replay {
 				// Same invocation retried: reproduce the first result rather
-				// than advancing; bytes appended after the recorded cursor are
-				// deliberately excluded so retries stay deterministic.
+				// than advancing; bytes appended after the recorded end cursor
+				// are deliberately excluded so retries stay deterministic.
 				b = b[:min(base, len(b))]
-				start = 0
+				start = min(previous.Start[name], base)
 			}
 			u, pos, e := tokenUsageFrom(b, start)
 			if e != nil {
@@ -341,14 +343,15 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 			sub.Create += u.Create
 			sub.Calls += u.Calls
 			if resume {
-				counted[filepath.Base(p)] = pos
+				starts[name] = start
+				counted[name] = pos
 			}
 		}
 		if resume && !replay {
 			// The command must fail rather than report tokens whose cursor
 			// could not be saved: returning success would let the next pass
 			// recount this usage once the write succeeds.
-			if e := writeChildOffsets(*dir, childOffsetState{Offset: *offset, Cursors: counted}); e != nil {
+			if e := writeChildOffsets(*dir, childOffsetState{Offset: *offset, Start: starts, Cursors: counted}); e != nil {
 				return e
 			}
 		}

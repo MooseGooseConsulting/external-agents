@@ -1,6 +1,6 @@
 [tools]
 # CrewAI supports Python <3.14. Use the same interpreter for the optional fixture.
-python = "3.13"
+python = "3.15.1"
 
 [tasks.build]
 description = "Build the entire-agent-crewai wrapper"

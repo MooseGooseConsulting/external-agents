@@ -5,6 +5,38 @@ project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 adopts semantic versioning under the `agents/entire-agent-kimi-code/v*` tag
 convention.
 
+## [0.1.1] - 2026-10-26
+
+### Fixed
+
+- Archive verification hardening: refuse to extract archives with unsafe or
+  non-regular members (tar-slip), derive the platform label from the archive
+  filename instead of hardcoding linux, require the exec bit on unix binaries
+  rather than chmodding them into place, and validate member paths for
+  directory entries too.
+- Subagent correlation: a new SubagentStart can never bind to an already
+  completed child while a pending or active sibling matches; a delayed start
+  parsed after its child finished binds only to a uniquely matching completed
+  child, and several matching completed children stay ambiguous and are
+  refused.
+- Token accounting across resume: per-child byte cursors persist beside the
+  child transcripts, keyed to the parent offset and the parent transcript
+  endpoint. Retried invocations replay exactly their recorded range;
+  recalculations with a grown parent extend the recorded range from its
+  start; `--offset 0` performs a full recalculation with children counted in
+  full; a cursor write failure fails the command instead of letting a later
+  pass recount the same usage.
+- Session reads: derived sidecar paths are resolved through symlinks and must
+  remain inside the Entire-owned store before reading.
+- Lifecycle: a parent-level Interrupt or StopFailure ends the parent turn even
+  while a foreground child runs; child-attributed stop-class hooks remain
+  attributed to the child.
+- Release workflow: an existing release missing assets heals on rerun by
+  uploading only the missing ones.
+- Docs and e2e: README checksum verification greps the downloaded archive's
+  own line; the version-stamp comment matches the goreleaser ldflags; e2e
+  StartSession waits for the initial Kimi prompt before sending input.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added
@@ -45,4 +77,5 @@ convention.
   `go install github.com/MooseGooseConsulting/external-agents/agents/entire-agent-kimi-code/cmd/entire-agent-kimi-code@v0.1.0`.
 - No Kimi plugin is installed, no daemon runs, and there is no auto-update.
 
+[0.1.1]: https://github.com/MooseGooseConsulting/external-agents/releases/tag/agents%2Fentire-agent-kimi-code%2Fv0.1.1
 [0.1.0]: https://github.com/MooseGooseConsulting/external-agents/releases/tag/agents%2Fentire-agent-kimi-code%2Fv0.1.0

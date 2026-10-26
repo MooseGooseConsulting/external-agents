@@ -195,7 +195,7 @@ def extract_host_binary(archive: Path, os_name: str, dest: Path, errors: list[st
             with zipfile.ZipFile(archive) as zf:
                 infos = zf.infolist()
                 for info in infos:
-                    if not info.is_dir() and not is_safe_member_path(info.filename):
+                    if not is_safe_member_path(info.filename):
                         fail(errors, f"{archive.name}: refusing to extract archive with unsafe member {info.filename!r}")
                         return None
                 match = [

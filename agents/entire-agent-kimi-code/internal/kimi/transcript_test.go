@@ -305,8 +305,24 @@ func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
 	if u.Sub == nil || u.Sub.Input != 100 || u.Sub.Output != 10 || u.Sub.Calls != 1 || u.Input != 101 {
 		t.Fatalf("turn-1 usage: %+v", u)
 	}
-	if offsets := readChildOffsets(sub); offsets["agent-0.jsonl"] != len(first) {
-		t.Fatalf("child cursor not recorded: %+v", offsets)
+	state, ok := readChildOffsets(sub)
+	if !ok || state.Offset != 0 || state.Cursors["agent-0.jsonl"] != len(first) {
+		t.Fatalf("child cursor not recorded: %+v %v", state, ok)
+	}
+	// A retry with the same parent offset must replay the identical
+	// accounting even though the child has since grown: turn-2 usage below
+	// was appended after this pass, and a replay must not report it.
+	second := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":200,\"output\":20}}\n")
+	put(t, child, append(append([]byte{}, first...), second...))
+	out.Reset()
+	if e := New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub}, bytes.NewReader(main), &out); e != nil {
+		t.Fatal(e)
+	}
+	if e := json.Unmarshal(out.Bytes(), &u); e != nil {
+		t.Fatal(e)
+	}
+	if u.Sub == nil || u.Sub.Input != 100 || u.Sub.Output != 10 || u.Sub.Calls != 1 || u.Input != 101 {
+		t.Fatalf("replay with same offset changed accounting: %+v", u)
 	}
 	// The cursor state file must stay invisible to child transcript listing.
 	kids, e := childTranscripts(sub)
@@ -315,8 +331,6 @@ func TestTotalTokensCountsChildUsageFromRecordedOffsets(t *testing.T) {
 	}
 	// Resume-style pass: the parent cursor has advanced past turn 1 and the
 	// child gained turn-2 usage. Turn-1 child usage must not count twice.
-	second := []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":200,\"output\":20}}\n")
-	put(t, child, append(append([]byte{}, first...), second...))
 	main2 := append(append([]byte{}, main...), []byte("{\"type\":\"usage.record\",\"usage\":{\"inputOther\":2,\"output\":2}}\n")...)
 	out.Reset()
 	if e = New().HandleAggregate("calculate-total-tokens", []string{"--subagents-dir", sub, "--offset", strconv.Itoa(len(main))}, bytes.NewReader(main2), &out); e != nil {

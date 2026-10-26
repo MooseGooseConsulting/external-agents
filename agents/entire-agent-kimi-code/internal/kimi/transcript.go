@@ -295,11 +295,17 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 		// calculate-total-tokens must not recount historical child usage: the
 		// parent is restricted to the suffix after Entire's cursor, so every
 		// child counts only from the byte cursor recorded by the last pass.
+		// A pass re-requested with the same parent offset replays the recorded
+		// accounting verbatim, so a retried hook returns identical tokens.
 		// File extraction stays set-based from byte zero.
 		resume := command == "calculate-total-tokens"
-		previous := map[string]int{}
+		previous := childOffsetState{Cursors: map[string]int{}}
+		replay := false
 		if resume {
-			previous = readChildOffsets(*dir)
+			if state, ok := readChildOffsets(*dir); ok {
+				previous = state
+				replay = state.Offset == *offset
+			}
 		}
 		sub := tokens{}
 		counted := map[string]int{}
@@ -313,11 +319,19 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 				return e
 			}
 			files = append(files, f...)
-			offset := 0
+			base := 0
 			if resume {
-				offset = previous[filepath.Base(p)]
+				base = previous.Cursors[filepath.Base(p)]
 			}
-			u, pos, e := tokenUsageFrom(b, offset)
+			start := base
+			if replay {
+				// Same invocation retried: reproduce the first result rather
+				// than advancing; bytes appended after the recorded cursor are
+				// deliberately excluded so retries stay deterministic.
+				b = b[:min(base, len(b))]
+				start = 0
+			}
+			u, pos, e := tokenUsageFrom(b, start)
 			if e != nil {
 				return e
 			}
@@ -330,11 +344,13 @@ func (a *Agent) HandleAggregate(command string, args []string, in io.Reader, out
 				counted[filepath.Base(p)] = pos
 			}
 		}
-		if resume {
-			// Losing this state only reverts to recounting children from byte
-			// zero, so the accounting result of this pass must not depend on
-			// the cursor write succeeding.
-			_ = writeChildOffsets(*dir, counted)
+		if resume && !replay {
+			// The command must fail rather than report tokens whose cursor
+			// could not be saved: returning success would let the next pass
+			// recount this usage once the write succeeds.
+			if e := writeChildOffsets(*dir, childOffsetState{Offset: *offset, Cursors: counted}); e != nil {
+				return e
+			}
 		}
 		if sub.Calls > 0 {
 			t.Sub = &sub

@@ -85,29 +85,39 @@ func outputOffset(b []byte, pos int) int {
 
 // Child transcripts retained under the managed store grow append-only, but
 // Entire tracks a read cursor for the parent transcript alone. Persist each
-// child's counted byte position beside it so a later calculate-total-tokens
-// pass counts only usage recorded since the previous pass — the parent suffix
-// treatment, per child.
+// child's counted byte position beside it, tagged with the parent offset the
+// pass ran with, so a later calculate-total-tokens pass counts only usage
+// recorded since the previous pass — the parent suffix treatment, per child.
+// Retrying the same pass (same parent offset) replays the identical
+// accounting instead of silently shrinking the result.
 const childOffsetsFile = "read-offsets.json"
 
-func readChildOffsets(dir string) map[string]int {
+type childOffsetState struct {
+	Offset  int            `json:"offset"`
+	Cursors map[string]int `json:"cursors"`
+}
+
+func readChildOffsets(dir string) (childOffsetState, bool) {
 	b, e := os.ReadFile(filepath.Join(dir, childOffsetsFile))
 	if e != nil {
-		return map[string]int{}
+		return childOffsetState{}, false
 	}
-	var m map[string]int
-	if json.Unmarshal(b, &m) != nil {
-		return map[string]int{}
+	var s childOffsetState
+	if json.Unmarshal(b, &s) != nil || s.Cursors == nil {
+		return childOffsetState{}, false
 	}
-	for name, offset := range m {
+	for name, offset := range s.Cursors {
 		if offset < 0 {
-			delete(m, name)
+			delete(s.Cursors, name)
 		}
 	}
-	return m
+	return s, true
 }
-func writeChildOffsets(dir string, offsets map[string]int) error {
-	b, e := json.Marshal(offsets)
+func writeChildOffsets(dir string, s childOffsetState) error {
+	if s.Cursors == nil {
+		s.Cursors = map[string]int{}
+	}
+	b, e := json.Marshal(s)
 	if e != nil {
 		return e
 	}

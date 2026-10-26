@@ -29,9 +29,17 @@ func TestFindSubagentStartPrefersIncompleteChildOverCompletedDuplicate(t *testin
 	if matches != 1 || sub.ID != "agent-1" {
 		t.Fatalf("start bound to completed child: matches=%d sub=%+v", matches, sub)
 	}
+	// A delayed start parsed after the ONLY matching child finished still
+	// correlates through the unambiguous completed fallback.
 	sub, matches = findSubagent(subs[:1], subagentQuery{Name: "coder", Prompt: "same prompt", Done: false})
-	if matches != 0 {
-		t.Fatalf("start matched a completed child: matches=%d sub=%+v", matches, sub)
+	if matches != 1 || sub.ID != "agent-0" {
+		t.Fatalf("delayed start lost: matches=%d sub=%+v", matches, sub)
+	}
+	// Two finished children with the same name and prompt stay ambiguous: a
+	// start must never rebind one of them.
+	twice := append(append([]subagent{}, subs[:1]...), subagent{ID: "agent-2", Name: "coder", Prompt: "same prompt", Response: "second done", Done: true})
+	if _, matches = findSubagent(twice, subagentQuery{Name: "coder", Prompt: "same prompt", Done: false}); matches <= 1 {
+		t.Fatalf("ambiguous completed children resolved: matches=%d", matches)
 	}
 	// A stop keeps correlating with the finished child.
 	sub, matches = findSubagent(subs, subagentQuery{Name: "coder", Response: "first done", Done: true})

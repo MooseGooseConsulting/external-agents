@@ -11,6 +11,13 @@ const (
 )
 
 const (
+	eventUserPromptSubmit   = "UserPromptSubmit"
+	eventPostToolUseFailure = "PostToolUseFailure"
+	roleUser                = "user"
+	roleAssistant           = "assistant"
+)
+
+const (
 	HookNameSessionStart       = "session-start"
 	HookNameUserPromptSubmit   = "user-prompt-submit"
 	HookNamePreToolUse         = "pre-tool-use"
@@ -29,7 +36,7 @@ const (
 
 var hookSpecs = []hookSpec{
 	{QwenEvent: "SessionStart", HookName: HookNameSessionStart, EntryName: "entire-session-start"},
-	{QwenEvent: "UserPromptSubmit", HookName: HookNameUserPromptSubmit, EntryName: "entire-user-prompt-submit"},
+	{QwenEvent: eventUserPromptSubmit, HookName: HookNameUserPromptSubmit, EntryName: "entire-user-prompt-submit"},
 	{QwenEvent: "PreToolUse", HookName: HookNamePreToolUse, EntryName: "entire-pre-tool-use", Matcher: "*"},
 	{QwenEvent: "Stop", HookName: HookNameStop, EntryName: "entire-stop"},
 	{QwenEvent: "StopFailure", HookName: HookNameStopFailure, EntryName: "entire-stop-failure"},
@@ -37,7 +44,7 @@ var hookSpecs = []hookSpec{
 	{QwenEvent: "PreCompact", HookName: HookNamePreCompact, EntryName: "entire-pre-compact"},
 	{QwenEvent: "PostCompact", HookName: HookNamePostCompact, EntryName: "entire-post-compact"},
 	{QwenEvent: "PostToolUse", HookName: HookNamePostToolUse, EntryName: "entire-post-tool-use", Matcher: "*"},
-	{QwenEvent: "PostToolUseFailure", HookName: HookNamePostToolUseFailure, EntryName: "entire-post-tool-use-failure", Matcher: "*"},
+	{QwenEvent: eventPostToolUseFailure, HookName: HookNamePostToolUseFailure, EntryName: "entire-post-tool-use-failure", Matcher: "*"},
 	{QwenEvent: "Notification", HookName: HookNameNotification, EntryName: "entire-notification", Matcher: "*"},
 	{QwenEvent: "PermissionRequest", HookName: HookNamePermissionRequest, EntryName: "entire-permission-request", Matcher: "*"},
 	{QwenEvent: "SubagentStart", HookName: HookNameSubagentStart, EntryName: "entire-subagent-start", Matcher: "*"},

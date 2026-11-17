@@ -85,12 +85,12 @@ type wireToolResultBlock struct {
 // transcript does, and each hook still costs exactly one line.
 func projectSidecarRecord(record sidecarRecord, nativeMessage string) (string, *wireMessage) {
 	switch record.Event {
-	case "UserPromptSubmit":
+	case eventUserPromptSubmit:
 		if strings.TrimSpace(record.Prompt) == "" {
 			return "", nil
 		}
-		return "user", &wireMessage{
-			Role:    "user",
+		return roleUser, &wireMessage{
+			Role:    roleUser,
 			Content: textContent(nativeMessage, record.Prompt),
 		}
 
@@ -105,9 +105,9 @@ func projectSidecarRecord(record sidecarRecord, nativeMessage string) (string, *
 			Name:  record.ToolName,
 			Input: decodeRawObject(record.ToolInput),
 		})
-		return "assistant", &wireMessage{Role: "assistant", ID: record.ToolUseID, Content: content}
+		return roleAssistant, &wireMessage{Role: roleAssistant, ID: record.ToolUseID, Content: content}
 
-	case "PostToolUse", "PostToolUseFailure":
+	case "PostToolUse", eventPostToolUseFailure:
 		output, isError := toolOutcome(record)
 		content := textContent(nativeMessage)
 		content = append(content, wireToolResultBlock{
@@ -116,7 +116,7 @@ func projectSidecarRecord(record sidecarRecord, nativeMessage string) (string, *
 			Content:   output,
 			IsError:   isError,
 		})
-		return "user", &wireMessage{Role: "user", Content: content}
+		return roleUser, &wireMessage{Role: roleUser, Content: content}
 
 	case "Stop", "StopFailure":
 		text := record.LastAssistantMessage
@@ -126,8 +126,8 @@ func projectSidecarRecord(record sidecarRecord, nativeMessage string) (string, *
 		if strings.TrimSpace(text) == "" {
 			return "", nil
 		}
-		return "assistant", &wireMessage{
-			Role:    "assistant",
+		return roleAssistant, &wireMessage{
+			Role:    roleAssistant,
 			Content: textContent(nativeMessage, text),
 		}
 

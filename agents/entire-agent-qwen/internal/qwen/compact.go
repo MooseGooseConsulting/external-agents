@@ -65,7 +65,7 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	for _, record := range records {
 		switch record.Event {
-		case "UserPromptSubmit":
+		case eventUserPromptSubmit:
 			if record.Prompt == "" {
 				continue
 			}
@@ -73,13 +73,13 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 				V:          1,
 				Agent:      AgentName,
 				CLIVersion: compactCLIVersion,
-				Type:       "user",
+				Type:       roleUser,
 				TS:         record.TS,
 				Content:    []compactUserTextBlock{{Text: record.Prompt}},
 			}); err != nil {
 				return nil, err
 			}
-		case "PostToolUse", "PostToolUseFailure":
+		case "PostToolUse", eventPostToolUseFailure:
 			block := compactToolUseBlock{
 				Type:  "tool_use",
 				ID:    record.ToolUseID,
@@ -96,7 +96,7 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 				V:          1,
 				Agent:      AgentName,
 				CLIVersion: compactCLIVersion,
-				Type:       "assistant",
+				Type:       roleAssistant,
 				TS:         record.TS,
 				ID:         record.ToolUseID,
 				Content:    []any{block},
@@ -115,7 +115,7 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 				V:          1,
 				Agent:      AgentName,
 				CLIVersion: compactCLIVersion,
-				Type:       "assistant",
+				Type:       roleAssistant,
 				TS:         record.TS,
 				Content:    []compactAssistantTextBlock{{Type: "text", Text: text}},
 			}); err != nil {

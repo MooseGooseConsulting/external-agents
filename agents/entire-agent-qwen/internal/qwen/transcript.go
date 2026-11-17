@@ -161,7 +161,7 @@ func (a *Agent) ExtractPrompts(path string, offset int) ([]string, error) {
 	}
 	var prompts []string
 	for _, record := range records[offset:] {
-		if record.Event == "UserPromptSubmit" && strings.TrimSpace(record.Prompt) != "" {
+		if record.Event == eventUserPromptSubmit && strings.TrimSpace(record.Prompt) != "" {
 			prompts = append(prompts, record.Prompt)
 		}
 	}

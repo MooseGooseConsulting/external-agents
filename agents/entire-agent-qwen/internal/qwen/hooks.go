@@ -216,7 +216,7 @@ func qwenEventName(hookName string, existing string) string {
 	case HookNameSessionStart:
 		return "SessionStart"
 	case HookNameUserPromptSubmit:
-		return "UserPromptSubmit"
+		return eventUserPromptSubmit
 	case HookNamePreToolUse:
 		return "PreToolUse"
 	case HookNameStop:
@@ -232,7 +232,7 @@ func qwenEventName(hookName string, existing string) string {
 	case HookNamePostToolUse:
 		return "PostToolUse"
 	case HookNamePostToolUseFailure:
-		return "PostToolUseFailure"
+		return eventPostToolUseFailure
 	case HookNameNotification:
 		return "Notification"
 	case HookNamePermissionRequest:

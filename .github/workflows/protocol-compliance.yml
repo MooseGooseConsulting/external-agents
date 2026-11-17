@@ -71,6 +71,9 @@ jobs:
       - name: Run protocol compliance suite
         uses: entireio/external-agents-tests@3220ca8cc7ba2fbfc5a951ce4a5937ca1a5ca26e # main
         env:
+          # The composite action installs its own Go toolchain. Do not retain
+          # mise's GOROOT when setup-go prepends a different version to PATH.
+          GOROOT: ""
           # Hermes intentionally refuses hook installation without an explicit
           # profile. Other adapters ignore this runner-temporary directory.
           HERMES_HOME: ${{ runner.temp }}/external-agent-hermes-profile

@@ -12,4 +12,4 @@ permissions:
 
 jobs:
   check-licenses:
-    uses: entireio/shared/.github/workflows/license-check-reusable.yml@6e5ecde24c20a17b4146250287307718987b7317 # main
+    uses: entireio/shared/.github/workflows/license-check-reusable.yml@b2b8d1f2fa55637d7b562ffd8313a57207e7f8a6 # main

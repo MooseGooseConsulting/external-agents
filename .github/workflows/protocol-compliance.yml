@@ -16,7 +16,7 @@ jobs:
       count: ${{ steps.discover.outputs.count }}
       matrix: ${{ steps.discover.outputs.matrix }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - id: discover
         shell: bash
@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover-agents.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
 
@@ -71,6 +71,9 @@ jobs:
       - name: Run protocol compliance suite
         uses: entireio/external-agents-tests@3220ca8cc7ba2fbfc5a951ce4a5937ca1a5ca26e # main
         env:
+          # The composite action installs its own Go toolchain. Do not retain
+          # mise's GOROOT when setup-go prepends a different version to PATH.
+          GOROOT: ""
           # Hermes intentionally refuses hook installation without an explicit
           # profile. Other adapters ignore this runner-temporary directory.
           HERMES_HOME: ${{ runner.temp }}/external-agent-hermes-profile

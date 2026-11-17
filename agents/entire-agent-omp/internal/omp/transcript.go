@@ -30,7 +30,7 @@ func (a *Agent) ReadSession(input *protocol.HookInputJSON) (protocol.AgentSessio
 		}
 		return protocol.AgentSessionJSON{
 			SessionID:     session.Header.ID,
-			AgentName:     "omp",
+			AgentName:     agentName,
 			RepoPath:      session.Header.Cwd,
 			SessionRef:    input.SessionRef,
 			StartTime:     session.Header.Timestamp,
@@ -42,7 +42,7 @@ func (a *Agent) ReadSession(input *protocol.HookInputJSON) (protocol.AgentSessio
 	}
 	return protocol.AgentSessionJSON{
 		SessionID:     input.SessionID,
-		AgentName:     "omp",
+		AgentName:     agentName,
 		RepoPath:      protocol.RepoRoot(),
 		SessionRef:    input.SessionRef,
 		StartTime:     time.Now().UTC().Format(time.RFC3339),

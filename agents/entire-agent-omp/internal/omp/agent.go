@@ -7,6 +7,8 @@ import (
 	"github.com/entireio/external-agents/agents/entire-agent-omp/internal/protocol"
 )
 
+const agentName = "omp"
+
 type Agent struct{}
 
 func New() *Agent { return &Agent{} }
@@ -14,7 +16,7 @@ func New() *Agent { return &Agent{} }
 func (a *Agent) Info() protocol.InfoResponse {
 	return protocol.InfoResponse{
 		ProtocolVersion: protocol.ProtocolVersion,
-		Name:            "omp",
+		Name:            agentName,
 		Type:            "Oh My Pi",
 		Description:     "Oh My Pi terminal coding agent",
 		IsPreview:       true,

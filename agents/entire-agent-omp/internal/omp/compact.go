@@ -77,7 +77,7 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 				continue
 			}
 			if err := writeCompactLine(&output, compactLine{
-				V: 1, Agent: "omp", CLIVersion: compactCLIVersion(), Type: "user",
+				V: 1, Agent: agentName, CLIVersion: compactCLIVersion(), Type: "user",
 				TS: record.Entry.Timestamp, Content: content,
 			}); err != nil {
 				return nil, err
@@ -88,7 +88,7 @@ func compactTranscriptBytes(data []byte) ([]byte, error) {
 				continue
 			}
 			line := compactLine{
-				V: 1, Agent: "omp", CLIVersion: compactCLIVersion(), Type: roleAssistant,
+				V: 1, Agent: agentName, CLIVersion: compactCLIVersion(), Type: roleAssistant,
 				TS: record.Entry.Timestamp, ID: record.Entry.ID, Content: content,
 			}
 			if message.Usage != nil {

@@ -17,6 +17,7 @@ import (
 )
 
 const wireLoopEvent = "context.append_loop_event"
+const textBlockType = "text"
 
 type record struct {
 	Type    string          `json:"type"`
@@ -69,7 +70,7 @@ func contentText(b json.RawMessage) string {
 	}
 	var out []string
 	for _, p := range parts {
-		if p.Type == "text" {
+		if p.Type == textBlockType {
 			out = append(out, p.Text)
 		}
 	}
@@ -225,7 +226,7 @@ func (a *Agent) ExtractSummary(path string) (string, bool, error) {
 	}
 	var s strings.Builder
 	for _, r := range rs {
-		if r.Type == wireLoopEvent && r.Event.Type == "content.part" && r.Event.Part.Type == "text" {
+		if r.Type == wireLoopEvent && r.Event.Type == "content.part" && r.Event.Part.Type == textBlockType {
 			s.WriteString(r.Event.Part.Text)
 		}
 	}
@@ -439,8 +440,8 @@ func (a *Agent) CompactTranscript(path string) (protocol.CompactTranscriptRespon
 		switch r.Event.Type {
 		case "content.part":
 			p := r.Event.Part
-			if p.Type == "text" && p.Text != "" {
-				emit(r, "assistant", []any{map[string]any{"type": "text", "text": p.Text}})
+			if p.Type == textBlockType && p.Text != "" {
+				emit(r, "assistant", []any{map[string]any{"type": textBlockType, "text": p.Text}})
 			}
 		case "tool.call":
 			var input any

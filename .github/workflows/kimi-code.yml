@@ -19,10 +19,10 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Unit and captured lifecycle regressions
         working-directory: agents/entire-agent-kimi-code
@@ -49,13 +49,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Snapshot package all targets
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           distribution: goreleaser
-          version: v2.12.7
+          version: v2.20.2
           args: release --snapshot --clean --config .goreleaser.kimi-code.yaml
       - name: Verify snapshot artifacts
         run: python agents/entire-agent-kimi-code/scripts/verify-release.py --dist dist
